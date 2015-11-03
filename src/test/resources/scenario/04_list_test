@@ -1,0 +1,3 @@
+alice.vienna.at:	!list
+>					verify(".*alice.*", T(test.util.Flag).REGEX)
+>                   say("List?")

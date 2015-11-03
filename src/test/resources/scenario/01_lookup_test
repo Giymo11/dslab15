@@ -1,0 +1,20 @@
+*	Chatserver	chatserver
+*	Client		alice.vienna.at
+
+alice.vienna.at:	!login alice.vienna.at 12345
+>					verify("Successfully logged in.")
+
+
+alice.vienna.at:	!lookup bob
+>                   verify("No user with name bob found.")
+
+alice.vienna.at:	!lookup alice.vienna.at
+>					verify("alice.vienna.at didn't register yet!")
+
+alice.vienna.at:	!register 127.0.0.1
+
+alice.vienna.at:	!lookup alice.vienna.at
+>					verify("alice.vienna.at registered under 127.0.0.1")
+
+chatserver: 		!exit
+alice.vienna.at:	!exit
