@@ -121,14 +121,18 @@ public class ScenarioTest {
 			 * CLI
 			 */
 			else {
-				String[] parts = line.split(":?\\s+", 2);
-				component = componentMap.get(parts[0]);
-				if (component == null) {
-					throw new IllegalStateException(String.format(
-							"Cannot find component '%s'. Please start it before using it.", parts[0]));
+				if(line.endsWith(":")) { //only set the component
+					component = componentMap.get(line.split(":")[0]);
+				} else {
+					String[] parts = line.split(":?\\s+", 2);
+					component = componentMap.get(parts[0]);
+					if (component == null) {
+						throw new IllegalStateException(String.format(
+								"Cannot find component '%s'. Please start it before using it.", parts[0]));
+					}
+					component.in.addLine(parts[1].trim());
+					Thread.sleep(500);
 				}
-				component.in.addLine(parts[1].trim());
-				Thread.sleep(500);
 			}
 		}
 	}

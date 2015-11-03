@@ -16,3 +16,5 @@ You end up using the CommandInterpreter as Channels to route your communication 
 
 To make this work, I had to make some adjustments to the Shell, and did not use the Interfaces as expected,
     but it still works with the Testing facility and ends up being more elegant, so I hope this is not an issue.
+
+Small note: I did change a little detail in the ScenarioTest class
