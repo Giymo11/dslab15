@@ -155,14 +155,14 @@ public class ScenarioTest {
 		if (contains(Flag.LAST, (Object[]) flags)) {
 			lines = Collections.singletonList(lines.isEmpty() ? "" : lines.get(lines.size() - 1));
 		}
-		String actual = join("\n", lines);
+		String actual = join(" ", lines);
 
 		Matcher<String> matcher;
 		if (contains(Flag.REGEX, (Object[]) flags)) {
 			matcher = new PatternMatcher(expected);
 		} else {
-			matcher = CoreMatchers.containsString(expected.toLowerCase());
-			actual = actual.toLowerCase();
+			matcher = CoreMatchers.containsString(expected.toLowerCase().trim());
+			actual = actual.toLowerCase().trim();
 		}
 
 		String msg = String.format("String must %s%s '%s' but was:%s",

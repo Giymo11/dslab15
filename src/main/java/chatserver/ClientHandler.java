@@ -76,7 +76,6 @@ public class ClientHandler extends CommandInterpreter implements IClientForChats
         String tmp = checkForLogin();
         if(tmp == null) {
             for(ClientHandler clientHandler : callback.getClientHandlers()) {
-                System.out.println("User: " + clientHandler.username);
                 if(clientHandler.username != null && clientHandler.username.equals(username)) {
                     if(clientHandler.privateAddress != null) {
                         return "!register " + username + " " + clientHandler.privateAddress;
@@ -85,7 +84,7 @@ public class ClientHandler extends CommandInterpreter implements IClientForChats
                     }
                 }
             }
-            return "No user with name " + username + " found.";
+            return "No user with name " + username + " online.";
         }
         return tmp;
     }

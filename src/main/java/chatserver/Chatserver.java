@@ -125,6 +125,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 					}
 				} catch (IOException e) {
 					System.out.println("Could not receive from datagramSocket");
+					return;
 				}
 
 			}

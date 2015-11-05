@@ -5,34 +5,42 @@ import shared.Command;
 import shared.CommandInterpreter;
 import util.Config;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.*;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 public class Client implements IClientCli, Runnable {
 
-	private String componentName;
-	private Config config;
-	private InputStream userRequestStream;
-	private PrintStream userResponseStream;
+	private final String componentName;
+	private final Config config;
+	private final InputStream userRequestStream;
+	private final PrintStream userResponseStream;
 
-	private Socket socket;
+	private Socket serverSocket;
+	private ServerSocket socket;
 	private CommandInterpreter userToServer;
 	private ServerHandler serverToUser;
 
 	private InetAddress serverAddress;
-	private int serverPort;
-	private int serverDatagramPort;
-	private int port;
-	private int datagramPort;
+	private final int serverPort;
+	private final int serverDatagramPort;
+	private final int port;
+	private final int datagramPort;
 
-	private Map<String, String> userAddressMap = new HashMap<>();
+	private String name;
+
+	private final Map<String, String> userAddressMap = new HashMap<>();
+	private final Map<String, List<String>> pendingMessages = new HashMap<>();
 
 	public Map<String, String> getUserAddressMap() {
 		return userAddressMap;
+	}
+
+	public Map<String, List<String>> getPendingMessages() {
+		return pendingMessages;
 	}
 
 	/**
@@ -69,11 +77,11 @@ public class Client implements IClientCli, Runnable {
 			return;
 		}
 		try {
-			socket = new Socket(serverAddress, serverPort);
-			userToServer = new CommandInterpreter(userRequestStream, socket.getOutputStream());
+			serverSocket = new Socket(serverAddress, serverPort);
+			userToServer = new CommandInterpreter(userRequestStream, serverSocket.getOutputStream());
 			userToServer.register(this);
 			new Thread(userToServer).start();
-			serverToUser = new ServerHandler(socket.getInputStream(), userResponseStream, this);
+			serverToUser = new ServerHandler(serverSocket.getInputStream(), userResponseStream, this);
 			serverToUser.register(serverToUser);
 			new Thread(serverToUser).start();
 		} catch (IOException e) {
@@ -82,8 +90,10 @@ public class Client implements IClientCli, Runnable {
 	}
 
 	@Override
+	@Command
 	public String login(String username, String password) throws IOException {
-		return null;
+		this.name = username;
+		return "!login " + username + " " + password;
 	}
 
 	@Override
@@ -101,9 +111,51 @@ public class Client implements IClientCli, Runnable {
 		return null;
 	}
 
+	private class ClientHandler implements Runnable {
+		private final Socket otherClient;
+
+		public ClientHandler(Socket otherClient) {
+			this.otherClient = otherClient;
+		}
+
+		@Override
+		public void run() {
+			try {
+				String message = new BufferedReader(new InputStreamReader(
+						otherClient.getInputStream())).readLine();
+
+				serverToUser.writeLine(message);
+
+				Writer out = new OutputStreamWriter(otherClient.getOutputStream());
+				out.write("!ack" + System.lineSeparator());
+				out.flush();
+			} catch (IOException e) {
+				System.out.println("Could not read the private message");
+			}
+		}
+	}
+
 	@Override
+	@Command
 	public String register(String privateAddress) throws IOException {
-		return null;
+		socket = new ServerSocket(port);
+
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				while(!Thread.currentThread().isInterrupted()) {
+					try {
+						Socket otherClient = socket.accept();
+						new Thread(new ClientHandler(otherClient)).start();
+					} catch (IOException e) {
+						System.out.println("Cannot accept any inbound connections anymore.");
+						return;
+					}
+				}
+			}
+		}).start();
+
+		return "!register " + privateAddress;
 	}
 
 	@Override
@@ -131,9 +183,37 @@ public class Client implements IClientCli, Runnable {
 
 	@Override
 	@Command
-	public String msg(String username, String message) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+	public String msg(final String username, final String message) throws IOException {
+
+		final String address = userAddressMap.get(username);
+
+		if(address == null) {
+			if(pendingMessages.get(username) == null)
+				pendingMessages.put(username, new LinkedList<String>());
+			List<String> messages = pendingMessages.get(username);
+			messages.add(message);
+			userToServer.writeLine("!lookup " + username);
+			return "Could not send message, will deliver as soon as address to " + username + " is known.";
+		}
+
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					Socket otherClient = new Socket(InetAddress.getByName(address), port);
+					otherClient.getOutputStream().write((name + ": " + message + System.lineSeparator()).getBytes());
+					String response = new BufferedReader(new InputStreamReader(
+							otherClient.getInputStream())).readLine();
+					if(response.trim().equals("!ack")) {
+						serverToUser.writeLine(username + " replied with !ack");
+					}
+					otherClient.close();
+				} catch (Exception ex) {
+					System.out.println("Could not communicate to " + username);
+				}
+			}
+		}).start();
+		return "";
 	}
 	
 	@Override
@@ -145,6 +225,7 @@ public class Client implements IClientCli, Runnable {
 	@Override
 	@Command
 	public String exit() throws IOException {
+		serverSocket.close();
 		socket.close();
 		userToServer.close();
 		serverToUser.close();
@@ -169,5 +250,4 @@ public class Client implements IClientCli, Runnable {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 }

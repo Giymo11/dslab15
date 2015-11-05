@@ -1,12 +1,18 @@
 *	Chatserver	chatserver
 *	Client		alice.vienna.at
+*   Client      bill.de
 
 alice.vienna.at:    !login alice.vienna.at 12345
 >                   verify("")
 
-
 alice.vienna.at:	!list
 >					verify(".*alice.*", T(test.util.Flag).REGEX)
+
+bill.de:            !login bill.de 23456
+>                   verify("")
+
+alice.vienna.at:	!list
+>					verify(".*bill.*", T(test.util.Flag).REGEX)
 
 chatserver: 		!exit
 alice.vienna.at:	!exit

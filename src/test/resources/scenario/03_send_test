@@ -7,9 +7,19 @@ alice.vienna.at:    !login alice.vienna.at 12345
 bill.de:            !login bill.de 23456
 >                   verify("")
 
+alice.vienna.at:    !lastMsg
+>                   verify("No message received yet!")
+
 bill.de:            !send hello world
 alice.vienna.at:
 >                   verify("bill.de: hello world")
 
+bill.de:            !send Test?
+alice.vienna.at:
+>                   verify("bill.de: Test?")
+alice.vienna.at:    !lastMsg
+>                   verify("bill.de: Test?")
+
 chatserver: 		!exit
 alice.vienna.at:	!exit
+bill.de:            !exit

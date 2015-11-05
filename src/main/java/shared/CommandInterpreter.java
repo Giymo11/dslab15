@@ -6,10 +6,7 @@ import org.springframework.core.convert.support.DefaultConversionService;
 import java.io.*;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,8 +25,6 @@ public class CommandInterpreter implements Runnable, Closeable {
         private OutputStream out;
         private BufferedReader in;
         private Closeable readMonitor;
-
-
 
         /**
          * Creates a new {@code Shell} instance.
@@ -81,8 +76,6 @@ public class CommandInterpreter implements Runnable, Closeable {
                 System.out.println("Interpreter closed.");
             }
         }
-
-
 
         protected void print(Object result) throws IOException {
             if (result instanceof Iterable) {

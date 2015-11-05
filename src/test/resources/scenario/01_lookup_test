@@ -6,7 +6,7 @@ alice.vienna.at:	!login alice.vienna.at 12345
 
 
 alice.vienna.at:	!lookup bob
->                   verify("No user with name bob found.")
+>                   verify("No user with name bob online.")
 
 alice.vienna.at:	!lookup alice.vienna.at
 >					verify("alice.vienna.at didn't register yet!")
