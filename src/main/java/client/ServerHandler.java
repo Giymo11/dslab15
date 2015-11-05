@@ -28,9 +28,9 @@ public class ServerHandler extends CommandInterpreter {
         List<String> pending = callback.getPendingMessages().get(username);
         if(pending != null && !pending.isEmpty()) {
             try {
-                for(String message : pending) {
-                    callback.msg(username, message);
-                }
+                    for(String message : pending) {
+                        callback.sendMsg(username, message);
+                    }
                 writeLine("Pending messages for " + username + " are being sent.");
             } catch (IOException ex) {
                 try {

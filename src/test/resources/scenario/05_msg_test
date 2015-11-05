@@ -6,23 +6,26 @@ alice.vienna.at:    !login alice.vienna.at 12345
 >                   verify("Successfully logged in.")
 
 alice.vienna.at:    !msg bill.de Hi bill!
->                   verify("No user with name bill.de online. Could not send message, will deliver as soon as address to bill.de is known.")
+>                   verify("No user with name bill.de online.")
 
 bill.de:            !login bill.de 23456
 >                   verify("Successfully logged in.")
 
-alice.vienna.at:    !lookup bill.de
+alice.vienna.at:    !msg bill.de Hi bill?
 >                   verify("bill.de didn't register yet!")
 
 bill.de:            !register 127.0.0.1
 >                   verify("Successfully registered private IP address.")
 
-alice.vienna.at:	!lookup bill.de
->                   verify("Pending messages for bill.de are being sent. bill.de registered under 127.0.0.1 bill.de replied with !ack")
+alice.vienna.at:	!msg bill.de Hi Bill!!
 
 bill.de:
->                   verify("alice.vienna.at: Hi bill!")
+>                   verify("Hi bill?")
 
+alice.vienna.at:	!msg bill.de Hi Billy Boy!
+
+bill.de:
+>                   verify("Hi Billy Boy!")
 
 chatserver: 		!exit
 alice.vienna.at:	!exit

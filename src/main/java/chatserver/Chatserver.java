@@ -1,7 +1,7 @@
 package chatserver;
 
 import shared.Command;
-import shared.Shell;
+import shared.CommandInterpreter;
 import util.Config;
 
 import java.io.IOException;
@@ -67,7 +67,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 		datagramSocket = tmpDatagramSocket != null ? tmpDatagramSocket : null;
 
 		pool = Executors.newCachedThreadPool();
-		Shell shell = new Shell(componentName, userRequestStream, userResponseStream);
+		CommandInterpreter shell = new CommandInterpreter(userRequestStream, userResponseStream);
 		shell.register(this);
 		pool.execute(shell);
 	}
@@ -90,7 +90,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 				try {
 					datagramSocket.send(new DatagramPacket(reply, reply.length, address, port));
 				} catch (IOException e) {
-					System.out.println("Could not respond to datagram");
+					userResponseStream.println("Could not respond to datagram");
 				}
 			}
 		}
@@ -106,7 +106,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 	@Override
 	public void run() {
 		if(serverSocket == null || datagramSocket == null) {
-			System.out.println("One or both sockets could not be instantiated!");
+			userResponseStream.println("One or both sockets could not be instantiated!");
 			return;
 		}
 		pool.execute(new Runnable() {

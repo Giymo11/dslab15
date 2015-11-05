@@ -7,10 +7,8 @@ import util.Config;
 
 import java.io.*;
 import java.net.*;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 public class Client implements IClientCli, Runnable {
 
@@ -130,7 +128,11 @@ public class Client implements IClientCli, Runnable {
 				out.write("!ack" + System.lineSeparator());
 				out.flush();
 			} catch (IOException e) {
-				System.out.println("Could not read the private message");
+				try {
+					serverToUser.writeLine("Could not read the private message");
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
 			}
 		}
 	}
@@ -148,7 +150,11 @@ public class Client implements IClientCli, Runnable {
 						Socket otherClient = socket.accept();
 						new Thread(new ClientHandler(otherClient)).start();
 					} catch (IOException e) {
-						System.out.println("Cannot accept any inbound connections anymore.");
+						try {
+							serverToUser.writeLine("Cannot accept any inbound connections anymore.");
+						} catch (IOException e1) {
+							e1.printStackTrace();
+						}
 						return;
 					}
 				}
@@ -185,35 +191,60 @@ public class Client implements IClientCli, Runnable {
 	@Command
 	public String msg(final String username, final String message) throws IOException {
 
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				sendMsg(username, message);
+			}
+		}).start();
+		return "";
+	}
+
+	void sendMsg(String username, String message) {
+
 		final String address = userAddressMap.get(username);
 
 		if(address == null) {
 			if(pendingMessages.get(username) == null)
 				pendingMessages.put(username, new LinkedList<String>());
-			List<String> messages = pendingMessages.get(username);
-			messages.add(message);
-			userToServer.writeLine("!lookup " + username);
-			return "Could not send message, will deliver as soon as address to " + username + " is known.";
+
+			synchronized (pendingMessages.get(username)) {
+				List<String> messages = pendingMessages.get(username);
+				messages.add("[" + new SimpleDateFormat("HH:mm:ss.SSS").format(new Date())
+						+ "] " + message);
+			}
+
+			try {
+				userToServer.writeLine("!lookup " + username);
+				serverToUser.writeLine("Could not send message, will deliver as soon as address to " + username + " is known.");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			return;
 		}
 
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					Socket otherClient = new Socket(InetAddress.getByName(address), port);
-					otherClient.getOutputStream().write((name + ": " + message + System.lineSeparator()).getBytes());
-					String response = new BufferedReader(new InputStreamReader(
-							otherClient.getInputStream())).readLine();
-					if(response.trim().equals("!ack")) {
-						serverToUser.writeLine(username + " replied with !ack");
-					}
-					otherClient.close();
-				} catch (Exception ex) {
-					System.out.println("Could not communicate to " + username);
+		synchronized (pendingMessages.get(username)) {
+			try {
+				Socket otherClient = new Socket(InetAddress.getByName(address), port);
+				otherClient.getOutputStream().write((
+						name + ": " + message + System.lineSeparator()).getBytes()
+				);
+				String response = new BufferedReader(new InputStreamReader(
+						otherClient.getInputStream())).readLine();
+				if(response.trim().equals("!ack")) {
+					serverToUser.writeLine(username + " replied with !ack");
 				}
+				otherClient.close();
+			} catch (Exception ex) {
+				try {
+					serverToUser.writeLine("Could not communicate to " + username);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				userAddressMap.remove(username);
 			}
-		}).start();
-		return "";
+		}
 	}
 	
 	@Override

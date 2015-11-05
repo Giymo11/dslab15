@@ -51,6 +51,7 @@ public class ClientHandler extends CommandInterpreter implements IClientForChats
         String tmp = checkForLogin();
         if(tmp == null) {
             username = null;
+            privateAddress = null;
             return "Successfully logged out.";
         }
         return tmp;

@@ -69,7 +69,6 @@ public class ScenarioTest {
 		List<String> lines = Files.readAllLines(stepFile, Charset.defaultCharset());
 		System.out.println(stepFile.getFileName().toString());
 		for (String line : lines) {
-			System.out.println("running: " + line);
 			/*
 			 * Comment
 			 */
