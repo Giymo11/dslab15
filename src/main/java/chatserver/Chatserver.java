@@ -1,19 +1,19 @@
 package chatserver;
 
+import shared.Command;
+import shared.Shell;
+import util.Config;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketException;
-import java.util.*;
+import java.net.*;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import shared.Command;
-import shared.CommandInterpreter;
-import shared.Shell;
-import util.Config;
 
 public class Chatserver implements IChatserverCli, Runnable {
 
@@ -23,10 +23,13 @@ public class Chatserver implements IChatserverCli, Runnable {
 
 	private final ExecutorService pool;
 	private final ServerSocket serverSocket;
+	private final DatagramSocket datagramSocket;
 
 	private final Config config;
 	private final Config users;
 	private final List<ClientHandler> clientHandlers = new LinkedList<>();
+
+	public static final int UDP_BUFFER_SIZE = 8192;
 
 	/**
 	 * @param componentName
@@ -47,13 +50,21 @@ public class Chatserver implements IChatserverCli, Runnable {
 
 		users = new Config("user");
 
-		ServerSocket tmp = null;
+		ServerSocket tmpSocket = null;
 		try {
-			tmp = new ServerSocket(config.getInt("tcp.port"));
+			tmpSocket = new ServerSocket(config.getInt("tcp.port"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		serverSocket = tmp != null ? tmp : null;
+		serverSocket = tmpSocket != null ? tmpSocket : null;
+
+		DatagramSocket tmpDatagramSocket = null;
+		try {
+			tmpDatagramSocket = new DatagramSocket(config.getInt("udp.port"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		datagramSocket = tmpDatagramSocket != null ? tmpDatagramSocket : null;
 
 		pool = Executors.newCachedThreadPool();
 		Shell shell = new Shell(componentName, userRequestStream, userResponseStream);
@@ -61,13 +72,65 @@ public class Chatserver implements IChatserverCli, Runnable {
 		pool.execute(shell);
 	}
 
+	private class DatagramHandler implements Runnable {
+		private byte[] buffer;
+		private InetAddress address;
+		private int port;
+
+		@Override
+		public void run() {
+			String message = new String(buffer);
+			if(message.trim().equals("!list")) {
+				Set<String> usersOnline = getUsersOnline();
+				StringBuilder builder = new StringBuilder();
+				for(String user : usersOnline) {
+					builder.append(user).append(System.lineSeparator());
+				}
+				byte[] reply = builder.toString().getBytes();
+				try {
+					datagramSocket.send(new DatagramPacket(reply, reply.length, address, port));
+				} catch (IOException e) {
+					System.out.println("Could not respond to datagram");
+				}
+			}
+		}
+
+		// This does not reference the outside variable, because it would break thread-safety as it could be modified at any time
+		public DatagramHandler(byte[] data, InetAddress address, int port) {
+			this.buffer = data;
+			this.address = address;
+			this.port = port;
+		}
+	}
+
 	@Override
 	public void run() {
-		if(serverSocket == null) {
-			System.out.println("Serversocket is not instantiated!");
+		if(serverSocket == null || datagramSocket == null) {
+			System.out.println("One or both sockets could not be instantiated!");
 			return;
 		}
-		while(true) {
+		pool.execute(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					byte[] buffer = new byte[UDP_BUFFER_SIZE];
+					DatagramPacket bufferPacket = new DatagramPacket(buffer, UDP_BUFFER_SIZE);
+					while(!Thread.currentThread().isInterrupted()) {
+						datagramSocket.receive(bufferPacket);
+						pool.execute(new DatagramHandler(
+								bufferPacket.getData().clone(),
+								bufferPacket.getAddress(),
+								bufferPacket.getPort()
+						));
+					}
+				} catch (IOException e) {
+					System.out.println("Could not receive from datagramSocket");
+				}
+
+			}
+		});
+
+		while(!Thread.currentThread().isInterrupted()) {
 			try {
 				Socket socket = serverSocket.accept();
 				ClientHandler clientHandler = new ClientHandler(socket, this);
@@ -82,9 +145,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 		}
 	}
 
-	@Override
-	@Command
-	public String users() throws IOException {
+	private Set<String> getUsersOnline() {
 		Set<String> usersOnline = new HashSet<>();
 		for(ClientHandler clientHandler : clientHandlers) {
 			String username = clientHandler.getUsername();
@@ -92,6 +153,13 @@ public class Chatserver implements IChatserverCli, Runnable {
 				usersOnline.add(username);
 			}
 		}
+		return usersOnline;
+	}
+
+	@Override
+	@Command
+	public String users() throws IOException {
+		Set<String> usersOnline = getUsersOnline();
 		Set<String> usersOffline = users.listKeys();
 
 		StringBuilder builder = new StringBuilder();
@@ -118,6 +186,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 			clientHandler.close();
 		}
 		serverSocket.close();
+		datagramSocket.close();
 		pool.shutdownNow();
 		return null;
 	}

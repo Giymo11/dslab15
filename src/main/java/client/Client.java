@@ -1,16 +1,16 @@
 package client;
 
-import java.awt.*;
-import java.io.*;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
-
+import chatserver.Chatserver;
 import shared.Command;
 import shared.CommandInterpreter;
-import shared.Shell;
 import util.Config;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.net.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Client implements IClientCli, Runnable {
 
@@ -22,6 +22,12 @@ public class Client implements IClientCli, Runnable {
 	private Socket socket;
 	private CommandInterpreter userToServer;
 	private ServerHandler serverToUser;
+
+	private InetAddress serverAddress;
+	private int serverPort;
+	private int serverDatagramPort;
+	private int port;
+	private int datagramPort;
 
 	private Map<String, String> userAddressMap = new HashMap<>();
 
@@ -46,12 +52,24 @@ public class Client implements IClientCli, Runnable {
 		this.userRequestStream = userRequestStream;
 		this.userResponseStream = userResponseStream;
 
+		try {
+			this.serverAddress = InetAddress.getByName(config.getString("chatserver.host"));
+		} catch (UnknownHostException e) {
+			System.out.println("Server not found!");
+		}
+		this.serverPort = config.getInt("chatserver.tcp.port");
+		this.serverDatagramPort = config.getInt("chatserver.udp.port");
+		this.port = config.getInt("tcp.port");
+		this.datagramPort = config.getInt("udp.port");
 	}
 
 	@Override
 	public void run() {
+		if(serverAddress == null) {
+			return;
+		}
 		try {
-			socket = new Socket(config.getString("chatserver.host"), config.getInt("chatserver.tcp.port"));
+			socket = new Socket(serverAddress, serverPort);
 			userToServer = new CommandInterpreter(userRequestStream, socket.getOutputStream());
 			userToServer.register(this);
 			new Thread(userToServer).start();
@@ -91,8 +109,24 @@ public class Client implements IClientCli, Runnable {
 	@Override
 	@Command
 	public String list() throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		DatagramSocket datagramSocket = new DatagramSocket(datagramPort);
+		String command = "!list";
+		DatagramPacket packet = new DatagramPacket(
+				command.getBytes(),
+				command.getBytes().length,
+				serverAddress,
+				serverDatagramPort);
+		datagramSocket.connect(
+				serverAddress, serverDatagramPort);
+		datagramSocket.send(packet);
+
+		byte[] buffer = new byte[Chatserver.UDP_BUFFER_SIZE];
+		packet = new DatagramPacket(buffer, Chatserver.UDP_BUFFER_SIZE);
+		datagramSocket.receive(packet);
+
+		datagramSocket.close();
+
+		return new String(packet.getData());
 	}
 
 	@Override

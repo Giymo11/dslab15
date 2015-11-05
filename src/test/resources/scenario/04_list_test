@@ -1,3 +1,12 @@
+*	Chatserver	chatserver
+*	Client		alice.vienna.at
+
+alice.vienna.at:    !login alice.vienna.at 12345
+>                   verify("")
+
+
 alice.vienna.at:	!list
 >					verify(".*alice.*", T(test.util.Flag).REGEX)
->                   say("List?")
+
+chatserver: 		!exit
+alice.vienna.at:	!exit
